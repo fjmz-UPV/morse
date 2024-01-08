@@ -8,6 +8,23 @@
 #include <TimerOne.h>
 
 
+
+
+
+#include <Wire.h>
+#include "rgb_lcd.h"
+
+rgb_lcd lcd;
+
+const int colorR = 255;
+const int colorG = 0;
+const int colorB = 0;
+
+int cursorF = 0;
+int cursorC = 0;
+
+
+
 const int intPin2 = 2;
 const int ledPin = 13;
 
@@ -45,6 +62,17 @@ volatile bool nuevo_simbolo = false;
 volatile bool nueva_letra   = false;
 volatile bool nueva_palabra = false;
 
+const char BLANCO = ' ';
+const char BLANCO2 = ' ';
+const char OTRO=' ';
+
+
+char linea0[16]={BLANCO, BLANCO, BLANCO, BLANCO, BLANCO, BLANCO, BLANCO, BLANCO, BLANCO, BLANCO, BLANCO, BLANCO, BLANCO, BLANCO, BLANCO, OTRO};
+char linea1[16]={BLANCO2, BLANCO2, BLANCO2, BLANCO2, BLANCO2, BLANCO2, BLANCO2, BLANCO2, BLANCO2, BLANCO2, BLANCO2, BLANCO2, BLANCO2, BLANCO2, BLANCO2, OTRO};
+
+const int PRIMERA = 0;
+int cursorC_PR = PRIMERA;
+int cursorC_letras = 0;
 
 volatile int tiempo_de_pulsos = 0;
 volatile int tiempo_de_pulsos_copia = 0;
@@ -80,6 +108,26 @@ void setup(){
   Serial.print("t_timer_us: ");
   Serial.println(t_timer_us);
 
+
+
+
+
+  lcd.begin(16, 2);
+
+  lcd.setRGB(colorR, colorG, colorB);
+  lcd.print("hello, world!");
+
+  delay(1000);
+
+  lcd.setCursor(0,0);
+  for (int i=0; i<16; i++) {
+    lcd.print(linea0[i]);
+  }
+
+  lcd.setCursor(0,1);
+  for (int i=0; i<16; i++) {
+    lcd.print(linea1[i]);
+  }
 }
 
 
@@ -133,16 +181,50 @@ char caracter(char letra[]) {
 }
 
 
+void printCursorCoords(char control, int columna, int fila) {
+  Serial.print("["); Serial.print(control); Serial.print(";"); Serial.print(columna); Serial.print(","); Serial.print(fila); Serial.print("]"); 
+}
+
+
+
+
 void printSimbolo(char simbolo) {
-  //Serial.print(simbolo);
+  Serial.print(simbolo);
+  linea0[cursorC_PR++] = simbolo;
+  lcd.setCursor(0,0);
+  for (int i=0; i<16; i++) {
+    lcd.print(linea0[i]);
+  }
+
+
 }
 
 void printLetra(char letra[]) {
   Serial.print(caracter(letra));
+  
+  lcd.setCursor(0,1);
+  for (int i=0; i<15; i++) {
+    linea1[i] = linea1[i+1];
+    lcd.print(linea1[i]);
+  }
+  linea1[15] = caracter(letra);
+  lcd.print(linea1[15]);
+  
+  for (int i=0; i<16; i++) {
+    linea0[i]=' ';
+    cursorC_PR=0;
+  }
+
 }
 
+
+
 void printEspacio() {
+  return;
   Serial.print(' ');
+  lcd.setCursor(cursorC_letras++,1);
+  lcd.print(ESPACIO);
+  cursorC_PR=PRIMERA;
 } 
 
 void printWpm() {
