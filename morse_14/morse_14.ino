@@ -130,9 +130,9 @@ int cursorC = 0;
 #define COL_WPM (COL_ANCHURA_PULSO+5)
 
 
-
 const int intPin2 = 2;
 const int ledPin = 13;
+const int buzzer = 4;
 
 
 
@@ -196,6 +196,7 @@ void setup(){
 
   pinMode(intPin2, INPUT_PULLUP);
   pinMode(ledPin,  OUTPUT);
+  pinMode(buzzer, OUTPUT);
 
   Serial.begin(115200);
 
@@ -208,7 +209,6 @@ void setup(){
   Timer1.stop();
   
 
-  attachInterrupt(digitalPinToInterrupt(intPin2), doChange,  CHANGE);
 
   #ifdef DEBUG
   Serial.print("\nwpm_inic: ");
@@ -238,6 +238,10 @@ void setup(){
   delay(4000);
 
   lcd.clear();
+
+  
+  attachInterrupt(digitalPinToInterrupt(intPin2), doChange,  CHANGE);
+
 /*
   lcd.setCursor(0,0);
   for (int i=0; i<16; i++) {
@@ -433,6 +437,8 @@ void procesar_flanco_bajada() {
   anchuraSilencio = t_flanco_bajada - t_flanco_subida;
   estado = NIVEL_BAJO;
   Timer1.stop();
+  digitalWrite(ledPin, HIGH);
+  digitalWrite(buzzer, HIGH);
   if (!palabra_iniciada) {
     palabra_iniciada = true;
     t_inic_palabra = t_flanco_bajada;
@@ -467,6 +473,8 @@ void procesar_flanco_subida() {
     tiempo_de_pulsos += anchuraPulso;
     n_Timer1Start = 0;
     Timer1.start();
+    digitalWrite(ledPin, LOW);
+    digitalWrite(buzzer, LOW);
     if (anchuraPulso < t_th_di_da_ms) {
       simbolo = PUNTO;
       n_puntos++;
