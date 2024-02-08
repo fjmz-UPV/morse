@@ -2,10 +2,10 @@
 //#include <M5Core2.h>
 #include <M5Unified.h>
 
-//#include <utility/M5Timer.h>
+#include <utility/M5Timer.h>
 
-//M5Timer M5T;
-//int nTimer;
+M5Timer M5T;
+int nTimer;
 
 
 #define MAX_COLA 20
@@ -125,6 +125,7 @@ float wpm_inic = 15;
 int tdi_ms;
 int t_th_di_da_ms;
 long t_timer_us;
+int t_timer_ms;
 
 
 const char PUNTO = '.';
@@ -163,7 +164,7 @@ int wpm_media = 0;
 char arrayPuntosRayas[MAX_PUNTOS_RAYAS+1];
 int contPR = 0;
 
-volatile int n_Timer1Start = 0;
+volatile int n_Timer1Start = 1;
 
 
 volatile int n_dits = 0;
@@ -196,37 +197,33 @@ void setup() {
     tdi_ms        = round( 60.f/(50*wpm_inic ) *1000 );
     t_th_di_da_ms = 2 * tdi_ms;
     t_timer_us    = tdi_ms*1000L;
+    t_timer_ms    = tdi_ms;
 
     Serial.begin(115200);
 
     Serial.println("Hola");
 
-#ifdef DEBUG
-  Serial.print("\nwpm_inic: ");
-  Serial.println(wpm_inic);
+    Serial.print("\nwpm_inic: ");
+    Serial.println(wpm_inic);
 
-  Serial.print("tdi_ms: ");
-  Serial.println(tdi_ms);
+    Serial.print("tdi_ms: ");
+    Serial.println(tdi_ms);
 
-  Serial.print("umbral: ");
-  Serial.println(t_th_di_da_ms);
+    Serial.print("umbral: ");
+    Serial.println(t_th_di_da_ms);
 
-
-  Serial.print("t_timer_us: ");
-  Serial.println(t_timer_us);
-
-  #endif
+    Serial.print("t_timer_us: ");
+    Serial.println(t_timer_us);
 
 
+    M5.Speaker.begin();
+    M5.Speaker.setVolume(16);
 
-  M5.Speaker.begin();
-  M5.Speaker.setVolume(16);
+    attachInterrupt(digitalPinToInterrupt(intPin), doChange,  CHANGE);
 
-  attachInterrupt(digitalPinToInterrupt(intPin), doChange,  CHANGE);
+    int nat2 = M5T.getNumAvailableTimers();
 
-  /////int nat = M5T.getNumAvailableTimers();
-
-  /////Serial.print("Nat: "); Serial.print(nat);
+    Serial.print("\nNat2: "); Serial.println(nat2);
 
   //hw_timer_t * timer = NULL;  
   //timer= timerBegin(0, 80, true);
@@ -236,21 +233,16 @@ void setup() {
 //timerAlarmWrite(timer, 1000000 * 60, true); // 1000000 * 1 us = 1 s, autoreload true
 //timerAlarmEnable(timer); // enable
 
-  hw_timer_t * timer = NULL;  
-  //timer= timerBegin((long)(1000./tdi_ms));
-timer = timerBegin(0, 80, true);
-timerAttachInterrupt(timer, &intermitente, true);
-timerAlarmWrite(timer, 1000000, true);
 
-// Start the timer
-//timerAlarmEnable(timer);
-
-
-portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
+//nTimer = M5T.setTimer(1000, intermitente, 20);
+//nTimer = M5T.setTimeout(t_timer_us*1000, timeOut);
+//nTimer = M5T.setTimeout(t_timer_us*1000, timeOut);
 
 }
 
 
+int veces=0;
+int MAX_VECES = 8;
 boolean encendido = false;
 void intermitente() {
   gotoXY(5,200);
@@ -260,6 +252,8 @@ void intermitente() {
     print(' ');
   }
   encendido=!encendido;
+  Serial.print("veces: "); Serial.println(++veces);
+  if (veces==MAX_VECES) M5T.disable(nTimer);
 }
 
 
@@ -289,9 +283,21 @@ void procesar_flanco_bajada() {
   estado = NIVEL_BAJO;
 
 
-//  if (M5T.isEnabled(nTimer)) {
-//    M5T.deleteTimer(nTimer);
-//  }
+  ///////////////////////////////////////////M5T.deleteTimer(nTimer);
+/*
+
+if (M5T.isEnabled(nTimer)) {
+  Serial.println("en flanco bajada, esta habilitado, luego delete!!!");
+  M5T.deleteTimer(nTimer);
+} else {
+  Serial.println("en flanco bajada, está deshabilitado, luego nada...");
+}
+*/
+
+
+  if (M5T.isEnabled(nTimer)) {
+    M5T.deleteTimer(nTimer);
+  }
 
   //M5.Axp.SetLed(1);
   ///Timer1.stop();
@@ -331,13 +337,32 @@ void procesar_flanco_subida() {
     estado = NIVEL_ALTO;
     tiempo_de_pulsos += anchuraPulso;
 
- //   if (M5T.isEnabled(nTimer)) {
- //     M5T.deleteTimer(nTimer);
- //   }
- //   nTimer = M5T.setTimeout(t_timer_us, timeOut);
+    if (M5T.isEnabled(nTimer)) {
+      //Serial.println("Temporizador borrado antes de arrancar (flanco_subida)");
+      M5T.deleteTimer(nTimer);
+    }
+    nTimer = M5T.setTimer(t_timer_ms, timeOut, 10);
+    //Serial.println("Temporizador arrancado");
+
+/*
+    if (M5T.isEnabled(nTimer)) { 
+      Serial.println("en flanco subida está habilitado, luego delete");
+      M5T.deleteTimer(nTimer); 
+    } else {
+      Serial.println("en flanco_subida, está deshabilitado, luego nada");
+    }
+    Serial.println("en flanco subida, re-timer!!!");
+    //nTimer = M5T.setTimeout(t_timer_us*1000, timeOut);
+*/
+
+    //M5T.deleteTimer(nTimer); 
+    //nTimer = M5T.setTimer(t_timer_us*1000, timeOut, 10);
+    //nTimer = M5T.setTimeout(1000, timeOut);
+
+
 
     //M5.Axp.SetLed(0);
-    ///////n_Timer1Start = 0;
+    n_Timer1Start = 1;
     //////Timer1.start();
     ///////////digitalWrite(ledPin, LOW);
     ///////////digitalWrite(buzzer, LOW);
@@ -387,6 +412,7 @@ void doRising() {
 
 
 void timeOut() {
+  //Serial.print("..............entrada timeout, n_Timer1Start: "); Serial.println(n_Timer1Start);
   switch(n_Timer1Start) {
     case UMBRAL_INTERLETRAS: 
 
@@ -415,6 +441,8 @@ void timeOut() {
             tiempo_de_pulsos = 0;
             
   ////////          Timer1.stop(); 
+            M5T.deleteTimer(nTimer);
+            //Serial.println("borrando temporizador en UMBRA_INTERPALABRAS");
 
             colaEventos.encolar('P');
 
@@ -505,9 +533,6 @@ char caracter(char arrayPuntosRayas[]) {
   else if (String(arrayPuntosRayas)=="-....-") return '-';
   else if (String(arrayPuntosRayas)=="...-..-") return '$';
   else if (String(arrayPuntosRayas)==".--.-.") return '@';
-
-
-
 
   else return '*';
 }
@@ -615,7 +640,15 @@ void loop() {
   ///////////////////////////////////////////////////////////////M5T.run();
 
 
+  M5.update();
 
+  M5T.run();
+
+  //if (M5T.isEnabled(nTimer)) {
+  //  Serial.println("Habilitado");
+  //} else {
+  //  Serial.println("Deshabilitado");
+  //}
 
   noInterrupts();
     bool hayEvento = colaEventos.desencolar(&evento);
@@ -623,16 +656,15 @@ void loop() {
   interrupts();
     
   if (mi_estado == NIVEL_BAJO) {
-//      M5.Axp.SetLed(1);
-M5.Speaker.tone(1000, 1000);
+    M5.Speaker.tone(1000, 1000);
   } else {
-M5.Speaker.stop();
+    M5.Speaker.stop();
   }
 
   if (hayEvento) {
     if (evento=='S') {
       noInterrupts();
-      colaPR.desencolar(&simbolo);
+        colaPR.desencolar(&simbolo);
       interrupts();
       Serial.print("\nsimbolo leido: "); Serial.println(simbolo);
       acumularPuntoRaya(simbolo);

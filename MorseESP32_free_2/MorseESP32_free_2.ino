@@ -1,14 +1,19 @@
+// Pantalla 320 x240 px 
 
 //#include <M5Core2.h>
 #include <M5Unified.h>
 
-//#include <utility/M5Timer.h>
+#include <utility/M5Timer.h>
 
-//M5Timer M5T;
-//int nTimer;
+M5Timer M5T;
+int nTimer;
 
 
-#define MAX_COLA 20
+volatile bool problema=false;
+
+
+/***************************** COLAS ********************************/
+#define MAX_COLA 100
 
 class Cola_char {
   private:
@@ -110,13 +115,75 @@ bool Cola_int::desencolar(int *c) {
 
 
 
-#define DEBUG 
+
+/////////////
+
+
+class Cola_eventos {
+  private:
+     String evts[MAX_COLA];
+    volatile long tiempos[MAX_COLA];
+    volatile int ptr_in  = 0;
+    volatile int ptr_out = 0;
+    volatile bool vacia = true;
+    volatile bool llena = false;
+  public:
+    Cola_eventos();
+    bool encolar(String tipo, long tiempo);
+    bool desencolar(String *tipo, long *tiempo);
+    bool estaVacia(void);
+    bool estaLlena(void);
+};
+
+
+Cola_eventos::Cola_eventos() {
+
+}
+
+bool Cola_eventos::estaVacia(void) {
+  return vacia;
+}
+
+bool Cola_eventos::estaLlena(void) {
+  return llena;
+}
+
+bool Cola_eventos::encolar(String tipo, long tiempo) {
+  if (llena) return false;
+
+  if (tiempo==0) problema=true;
+
+  evts[ptr_in] = tipo;
+  tiempos[ptr_in] = tiempo;
+  ptr_in++;
+  if (ptr_in==MAX_COLA) ptr_in = 0;
+  if (ptr_in==ptr_out) llena = true;
+  vacia = false;
+  return true;
+}
+
+bool Cola_eventos::desencolar(String *tipo, long *tiempo) {
+  if (vacia) return false;
+  *tipo = evts[ptr_out];
+  *tiempo = tiempos[ptr_out];
+  ptr_out++;
+  if (ptr_out==MAX_COLA) ptr_out = 0;
+  if (ptr_in == ptr_out) vacia = true;
+  llena = false;
+  return true;
+}
+
+
+
+
+
+/***********************************************************/
+
 
 #define T_REBOTE 10
 
 
 const int intPin = 33;
-
 
 const int UMBRAL_INTERLETRAS   = 3; //2;
 const int UMBRAL_INTERPALABRAS = 7; //5;
@@ -125,10 +192,11 @@ float wpm_inic = 15;
 int tdi_ms;
 int t_th_di_da_ms;
 long t_timer_us;
+int t_timer_ms;
 
 
-const char PUNTO = '.';
-const char RAYA = '-';
+const char PUNTO   = '.';
+const char RAYA    = '-';
 const char ESPACIO = ' ';
 
 
@@ -142,9 +210,8 @@ volatile long anchuraSilencio = 0;
 int wpm_media = 0;
 
 
-#define ESCALA 10
 
-#define MAX_PUNTOS_RAYAS 8
+#define MAX_PUNTOS_RAYAS 10
 
 
 #define COL_ANCHURA_PULSO 0
@@ -163,7 +230,7 @@ int wpm_media = 0;
 char arrayPuntosRayas[MAX_PUNTOS_RAYAS+1];
 int contPR = 0;
 
-volatile int n_Timer1Start = 0;
+volatile int n_Timer1Start = 1;
 
 
 volatile int n_dits = 0;
@@ -179,91 +246,49 @@ Cola_char colaEventos;
 Cola_char colaPR;
 Cola_int colaAnchuras;
 Cola_int colaWpm;
+Cola_eventos ce;
 
-
-
+/****************** SETUP ******************/
 void setup() {
-    M5.begin();  // Init M5Core2.  初始化 M5Core2
-    /* Power chip connected to gpio21, gpio22, I2C device
-           Set battery charging voltage and current
-           If used battery, please call this function in your project */
-
+    M5.begin();  
     M5.Lcd.setTextSize(2);       
-    print("Hello World");  // Print text on the screen (string)
-                                  // 在屏幕上打印文本(字符串)
+    print("PacoSoft CW Decoder");  
+
     pinMode(intPin, INPUT_PULLUP);
 
     tdi_ms        = round( 60.f/(50*wpm_inic ) *1000 );
     t_th_di_da_ms = 2 * tdi_ms;
     t_timer_us    = tdi_ms*1000L;
+    t_timer_ms    = tdi_ms;
 
     Serial.begin(115200);
 
     Serial.println("Hola");
 
-#ifdef DEBUG
-  Serial.print("\nwpm_inic: ");
-  Serial.println(wpm_inic);
+    Serial.print("\nwpm_inic: ");
+    Serial.println(wpm_inic);
 
-  Serial.print("tdi_ms: ");
-  Serial.println(tdi_ms);
+    Serial.print("tdi_ms: ");
+    Serial.println(tdi_ms);
 
-  Serial.print("umbral: ");
-  Serial.println(t_th_di_da_ms);
+    Serial.print("umbral: ");
+    Serial.println(t_th_di_da_ms);
 
+    Serial.print("t_timer_us: ");
+    Serial.println(t_timer_us);
 
-  Serial.print("t_timer_us: ");
-  Serial.println(t_timer_us);
+    M5.Speaker.begin();
+    M5.Speaker.setVolume(32);
 
-  #endif
-
-
-
-  M5.Speaker.begin();
-  M5.Speaker.setVolume(16);
-
-  attachInterrupt(digitalPinToInterrupt(intPin), doChange,  CHANGE);
-
-  /////int nat = M5T.getNumAvailableTimers();
-
-  /////Serial.print("Nat: "); Serial.print(nat);
-
-  //hw_timer_t * timer = NULL;  
-  //timer= timerBegin(0, 80, true);
-
-//timer = timerBegin(1, 240000000L, true); // timer 0, MWDT clock period = 12.5 ns * TIMGn_Tx_WDT_CLK_PRESCALE -> 12.5 ns * 80 -> 1000 ns = 1 us, countUp
-//timerAttachInterrupt(timer, &intermitente, true); // edge (not level) triggered
-//timerAlarmWrite(timer, 1000000 * 60, true); // 1000000 * 1 us = 1 s, autoreload true
-//timerAlarmEnable(timer); // enable
-
-  hw_timer_t * timer = NULL;  
-  //timer= timerBegin((long)(1000./tdi_ms));
-timer = timerBegin(0, 80, true);
-timerAttachInterrupt(timer, &intermitente, true);
-timerAlarmWrite(timer, 1000000, true);
-
-// Start the timer
-//timerAlarmEnable(timer);
-
-
-portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
+    attachInterrupt(digitalPinToInterrupt(intPin), doChange,  CHANGE);
 
 }
 
 
-boolean encendido = false;
-void intermitente() {
-  gotoXY(5,200);
-  if (encendido) {
-    print('*');
-  } else {
-    print(' ');
-  }
-  encendido=!encendido;
-}
 
 
 
+/********************* GESTION DEL MANIPULADOR *********************/
 
 void doChange() {
   if (digitalRead(intPin) == LOW) doFalling();
@@ -281,29 +306,27 @@ long t_flanco_subida = 0;
 volatile int estado = INICIAL;
 
 
-
-
 void procesar_flanco_bajada() {
   t_flanco_bajada = millis();
   anchuraSilencio = t_flanco_bajada - t_flanco_subida;
   estado = NIVEL_BAJO;
 
+  if (M5T.isEnabled(nTimer)) {
+    M5T.deleteTimer(nTimer);
+  }
 
-//  if (M5T.isEnabled(nTimer)) {
-//    M5T.deleteTimer(nTimer);
-//  }
-
-  //M5.Axp.SetLed(1);
-  ///Timer1.stop();
-  /////////digitalWrite(ledPin, HIGH);
-  /////////digitalWrite(buzzer, HIGH);
   if (!palabra_iniciada) {
     palabra_iniciada = true;
     t_inic_palabra = t_flanco_bajada;
   }
 }
 
+
+
+
 void doFalling() {
+
+  ce.encolar("Bajada", millis());
   switch (estado) {
 
     case INICIAL:
@@ -316,6 +339,9 @@ void doFalling() {
     case NIVEL_ALTO:
       if ( millis() - t_flanco_subida> T_REBOTE ) {
         procesar_flanco_bajada();
+        colaEventos.encolar('y');
+      } else {
+        colaEventos.encolar('f');
       }
       break;
   }
@@ -331,16 +357,13 @@ void procesar_flanco_subida() {
     estado = NIVEL_ALTO;
     tiempo_de_pulsos += anchuraPulso;
 
- //   if (M5T.isEnabled(nTimer)) {
- //     M5T.deleteTimer(nTimer);
- //   }
- //   nTimer = M5T.setTimeout(t_timer_us, timeOut);
+    if (M5T.isEnabled(nTimer)) {
+      M5T.deleteTimer(nTimer);
+    }
+    nTimer = M5T.setTimer(t_timer_ms, timeOut, 10);
 
-    //M5.Axp.SetLed(0);
-    ///////n_Timer1Start = 0;
-    //////Timer1.start();
-    ///////////digitalWrite(ledPin, LOW);
-    ///////////digitalWrite(buzzer, LOW);
+    n_Timer1Start = 1;
+
     if (anchuraPulso < t_th_di_da_ms) {
       simbolo = PUNTO;
       n_puntos++;
@@ -349,11 +372,6 @@ void procesar_flanco_subida() {
       simbolo = RAYA;
       n_rayas++;
       n_dits += 4;
-
-
-  //nTimer = M5T.setTimeout(3000, intermitente);
-
-
     }
     colaEventos.encolar('S');
     colaPR.encolar(simbolo); 
@@ -361,7 +379,10 @@ void procesar_flanco_subida() {
 }
 
 
+
+
 void doRising() {
+  ce.encolar("Subida", millis());
 
   switch (estado) {
 
@@ -372,6 +393,9 @@ void doRising() {
     case NIVEL_BAJO: 
       if ( millis() - t_flanco_bajada > T_REBOTE ) {
         procesar_flanco_subida();      
+        colaEventos.encolar('x');
+      } else {
+        colaEventos.encolar('r');
       }
       break;
     case NIVEL_ALTO:
@@ -390,13 +414,6 @@ void timeOut() {
   switch(n_Timer1Start) {
     case UMBRAL_INTERLETRAS: 
 
-            //nueva_letra   = true; 
-
-/*
-            tiempo_de_pulsos_copia = tiempo_de_pulsos;
-            n_puntos_copia         = n_puntos;
-            n_rayas_copia          = n_rayas;
-*/
             n_puntos = 0;
             n_rayas  = 0;
             tiempo_de_pulsos = 0;
@@ -404,17 +421,15 @@ void timeOut() {
 
             colaEventos.encolar('L');
 
-           
             break;
 
     case UMBRAL_INTERPALABRAS: 
-            //nueva_palabra = true; 
 
             n_puntos = 0;
             n_rayas  = 0;
             tiempo_de_pulsos = 0;
             
-  ////////          Timer1.stop(); 
+            M5T.deleteTimer(nTimer);
 
             colaEventos.encolar('P');
 
@@ -439,7 +454,7 @@ void timeOut() {
 
 
 
-
+/************** DECODIFICAION *********************/
 
 char caracter(char arrayPuntosRayas[]) {
   if (String(arrayPuntosRayas)==".")       return 'E';
@@ -506,20 +521,26 @@ char caracter(char arrayPuntosRayas[]) {
   else if (String(arrayPuntosRayas)=="...-..-") return '$';
   else if (String(arrayPuntosRayas)==".--.-.") return '@';
 
-
-
-
   else return '*';
+}
+
+
+void marcaEspacio(bool marca) {
+  if (marca) {
+    M5.Lcd.fillCircle(310, 10, 5, YELLOW);
+  } else {
+    M5.Lcd.fillCircle(310, 10, 5, BLACK);
+  }
 }
 
 
 #define PASO 20
 
 void acumularPuntoRaya(char puntoRaya) {
-  Serial.print(puntoRaya);
+  //Serial.print(puntoRaya);
   if (contPR==0) {
-    gotoXY(COL_PUNTOS_RAYAS, FILA_PUNTOS_RAYAS);
     for (int i=0; i<MAX_PUNTOS_RAYAS; i++) {
+      gotoXY(COL_PUNTOS_RAYAS+i*PASO, FILA_PUNTOS_RAYAS);
       print(' ');
       arrayPuntosRayas[i] = '\0';
     }
@@ -536,11 +557,11 @@ void printLetra(char car) {
   for (int i=0; i<15; i++) {
     linea1[i] = linea1[i+1];
     print(linea1[i]);
-    Serial.print(linea1[i]);
+    //Serial.print(linea1[i]);
   }
   linea1[15] = car;
   print(linea1[15]);
-  Serial.print(linea1[15]);
+  //Serial.print(linea1[15]);
   contPR = 0;
 }
 
@@ -556,7 +577,6 @@ void printAnchuraPulso(int anchura) {
 
 
 void printWpm(int wpm) {
-  //Serial.print("("); Serial.print(wpm_media); Serial.print(" wpm)");
   gotoXY(COL_WPM, FILA_WPM);
   print("    ");
   gotoXY(COL_WPM, FILA_WPM);
@@ -567,42 +587,44 @@ void printWpm(int wpm) {
 
 
 void gotoXY(int x, int y) {
-  Serial.print("Goto XY: "); Serial.print(x); Serial.print(", "); Serial.println(y);
+  //Serial.print("Goto XY: "); Serial.print(x); Serial.print(", "); Serial.println(y);
   M5.Lcd.setCursor(x, y);
 }
 
 void print(String x) {
-  Serial.print(x);
+  //Serial.print(x);
   M5.Lcd.print(x);
 }
 
 void print(char x) {
-  Serial.print(x);
+  //Serial.print(x);
   M5.Lcd.print(x);
 }
 
 void print(int x) {
-  Serial.print(x);
+  //Serial.print(x);
   M5.Lcd.print(x);
 }
 
 
 void println(String x) {
-  Serial.println(x);
+  //Serial.println(x);
   M5.Lcd.println(x);
 }
 
 void println(char x) {
-  Serial.println(x);
+  //Serial.println(x);
   M5.Lcd.println(x);
 }
 
 void println(int x) {
-  Serial.println(x);
+  //Serial.println(x);
   M5.Lcd.println(x);
 }
 
 
+volatile long tiempo_ant=0;
+long vez =0;
 
 void loop() {
 
@@ -611,11 +633,61 @@ void loop() {
   int anchura;
   int wpm;
   int mi_estado;
+  bool tela = false;
 
-  ///////////////////////////////////////////////////////////////M5T.run();
+  String tipo, mi_tipo;
+  long tiempo=0;
+  volatile long mi_tiempo;
+  volatile long tiempo_ant_aux;
+  M5.update();
+
+  M5T.run();
+
+  vez++;
+
+  bool problema_aux = false;
+
+  noInterrupts();
+
+    tiempo_ant_aux = tiempo_ant;
+    bool hayEvento = ce.desencolar(&tipo, &tiempo);
+    mi_estado = estado;
+    mi_tipo = tipo;
+    mi_tiempo = tiempo;
+    tiempo_ant = tiempo;
+    problema_aux = problema;
+    if (problema) problema = false;
+
+  interrupts();
+    
+  if (hayEvento) {
+    Serial.print(mi_tiempo-tiempo_ant_aux); Serial.print("  ");Serial.print(tiempo_ant_aux); Serial.print("      ");Serial.print(mi_tiempo); Serial.print(". Tipo: "); Serial.print(tipo); 
+    Serial.print(". vez: "); Serial.print(vez);
+    Serial.println();
+
+    if (problema_aux) {
+      Serial.println(".....................................................");
+      problema_aux= false;
+    }
+  }
 
 
 
+}
+
+
+
+void loop2() {
+
+  char evento;
+  char simbolo;
+  int anchura;
+  int wpm;
+  int mi_estado;
+
+  M5.update();
+
+  M5T.run();
 
   noInterrupts();
     bool hayEvento = colaEventos.desencolar(&evento);
@@ -623,18 +695,22 @@ void loop() {
   interrupts();
     
   if (mi_estado == NIVEL_BAJO) {
-//      M5.Axp.SetLed(1);
-M5.Speaker.tone(1000, 1000);
+    //Serial.println("NIVEL_BAJO");
+    marcaEspacio(true);
+    M5.Speaker.tone(1000, 1000);
   } else {
-M5.Speaker.stop();
+    //Serial.println("NIVEL_ALTO");
+    marcaEspacio(false);
+    M5.Speaker.stop();
   }
 
   if (hayEvento) {
+    Serial.print("Evento: "); Serial.println(evento);
     if (evento=='S') {
       noInterrupts();
-      colaPR.desencolar(&simbolo);
+        colaPR.desencolar(&simbolo);
       interrupts();
-      Serial.print("\nsimbolo leido: "); Serial.println(simbolo);
+      Serial.print("simbolo leido: "); Serial.println(simbolo);
       acumularPuntoRaya(simbolo);
       colaAnchuras.desencolar(&anchura);
       printAnchuraPulso(anchura);
