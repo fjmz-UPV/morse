@@ -1,12 +1,12 @@
 
 
-#define DEBUG 
+//#define DEBUG 
 
-
+#define VERSION "v2.0"
 
 /********************* CONTROL PERIFERICOS *******************/
 
-bool ledOn = false;
+bool ledOn = true;
 bool buzzerOn = true;
 
 /************************* PANTALLA **********************/
@@ -49,13 +49,13 @@ bool buzzerOn = true;
 
 #define T_REBOTE 5
 
-const int UMBRAL_INTERLETRAS   = 3; //2;
-const int UMBRAL_INTERPALABRAS = 7; //5;
-const int UMBRAL_INTERSIMBOLOS = 2; 
+const int UMBRAL_INTERLETRAS   = 3; // 1 < 2 < 3;
+const int UMBRAL_INTERPALABRAS = 7; // 3 < 5 < 7;
+const int UMBRAL_INTERSIMBOLOS = 2; // 1 puntos, 3 raya
 
 const int WPM_INIC = 15; 
 int wpm_media = WPM_INIC;
-long tdi_ms;
+int tdi_ms;
 
 
 long anchuraPulso = 0;
@@ -69,7 +69,7 @@ int n_letras = 0;
 
 long t_inic_palabra = 0;
 bool palabra_iniciada = false;
-int t_palabra;
+long t_palabra;
 
 
 long t_flanco_bajada = 0;
@@ -109,22 +109,30 @@ char lineaLetras[MAX_LETRAS];
 /*************** TEMPORIZACION **************/
 
 #include <TimerOne.h>
-void configurarTemporizador(long t_timer_ms) {
-  Timer1.stop();
-  Timer1.initialize(t_timer_ms*1000);
+void configurarTemporizador(long t_timer_us) {
+  pararTemporizador();
+  #ifdef DEBUG
+      Serial.print("config. temporizador (us): "); Serial.println(t_timer_us);
+  #endif
+  Timer1.initialize(t_timer_us);
   Timer1.attachInterrupt(timeOut);
-  Timer1.stop();
+  pararTemporizador();
 }
 
 void pararTemporizador() {
-  Serial.println("Parando temporizador");
+  #ifdef DEBUG
+    Serial.println("Parando temporizador");
+  #endif
   Timer1.stop();
 }
 
 void arrancarTemporizador() {
-  Serial.println("Arrancando temporizador");
+  #ifdef DEBUG
+    Serial.println("Arrancando temporizador");
+  #endif
   Timer1.start();
 }
+
 
 void reajustarTemporizador(long t_timer_ms) {
   Timer1.stop();
@@ -181,7 +189,7 @@ void presentacion() {
   lcd.setCursor(0,0);
   lcd.print("PacoSoft CW dec.");
   lcd.setCursor(0,1);
-  lcd.print(WPM_INIC); lcd.print(' '); lcd.print(tdi_ms); lcd.print(' '); lcd.print(UMBRAL_INTERSIMBOLOS * tdi_ms); 
+  lcd.print(WPM_INIC); lcd.print(' '); lcd.print(tdi_ms); lcd.print(' '); lcd.print(UMBRAL_INTERSIMBOLOS * tdi_ms);  lcd.print(" "); lcd.print(VERSION);
   delay(2000);
   lcd.clear();
 }
@@ -261,8 +269,10 @@ void arrancarTemporizador() {
   nTimer = M5T.setTimer(t_timer_ms_M5T, timeOut, 10);
 }
 
-void reajustarTemporizador(long t_timer_ms) {
-  configurarTemporizador(t_timer_ms);
+
+revisr ms us
+void reajustarTemporizador(long t_timer_us) {
+  configurarTemporizador(t_timer_us);
 }
 
 
@@ -445,7 +455,7 @@ char caracter(char arrayPuntosRayas[]) {
 
 void acumularPuntoRaya(char puntoRaya) {
   #ifdef DEBUG
-    //Serial.println(puntoRaya);
+    Serial.println(puntoRaya);
   #endif  
   if (contPR==0) {
     gotoXY( COL_PUNTOS_RAYAS_INIC, FILA_PUNTOS_RAYAS );
@@ -484,7 +494,7 @@ void printLetra(char car) {
     lineaLetras[i] = lineaLetras[i+1];
     print(lineaLetras[i]);
     #ifdef DEBUG 
-      //Serial.print(lineaLetras[i]);
+      Serial.print(lineaLetras[i]);
     #endif
   }
   lineaLetras[MAX_LETRAS-1] = car;
@@ -568,8 +578,9 @@ void encolarEvento(char evento) {
   vacia = false;
 }
   
-
+volatile int jjj=0;
 void timeOut() {
+  jjj++;
   switch(n_TimerStart) {
     case UMBRAL_INTERLETRAS: 
       encolarEvento('L');
@@ -591,6 +602,10 @@ void timeOut() {
 void setup(){
 
 
+  #ifdef DEBUG
+    Serial.begin(115200);
+  #endif
+
   inicManipulador();
   inicDisplay();
   inicAudio();
@@ -598,16 +613,16 @@ void setup(){
 
 
   tdi_ms        = round( 60.f/(50*WPM_INIC ) *1000 );
-  configurarTemporizador(tdi_ms);
+  long tdi_us = (long)tdi_ms * 1000;
+  configurarTemporizador(tdi_us);
 
   #ifdef DEBUG
-    Serial.begin(115200);
     Serial.print("\nWPM_INIC: ");
     Serial.println(WPM_INIC);
     Serial.print("tdi_ms: ");
     Serial.println(tdi_ms);
-    Serial.print("tdi_ms: ");
-    Serial.println(tdi_ms);
+    Serial.print("tdi_us: ");
+    Serial.println(tdi_us);
   #endif
 
   for (int i = 0; i < MAX_LETRAS; i++ ) {
@@ -615,6 +630,8 @@ void setup(){
   }
 
   presentacion(); 
+
+  printWpm(WPM_INIC, WPM_INIC);
   
   attachInterrupt(digitalPinToInterrupt(pinManipulador), doChange,  CHANGE);
 
@@ -628,14 +645,17 @@ void setup(){
 
 
 
-long arrayTiempos[MAX_PUNTOS_RAYAS*2+10];
+long arrayTiempos[MAX_PUNTOS_RAYAS*3];
 int ptr_arrayTiempos;
 
 
 void flancoBajada(long tiempo) {
   t_flanco_bajada = tiempo;
   anchuraSilencio = t_flanco_bajada - t_flanco_subida;
-  Serial.print("FB. "); Serial.print("t_flanco_bajada = "); Serial.print(t_flanco_bajada); Serial.print(" anchuraSilencio = "); Serial.println(anchuraSilencio);
+  #ifdef DEBUG
+    Serial.print("FB. "); Serial.print("t_flanco_bajada = "); Serial.print(t_flanco_bajada); Serial.print(" anchuraSilencio = "); Serial.println(anchuraSilencio);
+    Serial.print("jjj: "); Serial.println(jjj);
+  #endif
   noInterrupts();
     pararTemporizador();
   interrupts();
@@ -647,40 +667,29 @@ void flancoBajada(long tiempo) {
   }
 }
 
-void falsoFlancoBajada(long tiempo) {
-  #ifdef DEBUG
-    Serial.println("Falso flanco de bajada");
-  #endif  
-  flancoBajada(tiempo);
-}
 
-char falsoFlancoSubida(long tiempo) {
-  #ifdef DEBUG
-    Serial.println("Falso flanco de subida");
-  #endif
-  return flancoSubida(tiempo);
-}
 
 char flancoSubida(long tiempo) {
     char simbolo;
     t_flanco_subida = tiempo;
     anchuraPulso = t_flanco_subida - t_flanco_bajada;
     t_palabra = tiempo - t_inic_palabra;
-    Serial.print("FS. "); Serial.print("t_flanco_subida = "); Serial.print(t_flanco_subida); Serial.print(" anchuraPulso = "); Serial.println(anchuraPulso);
+    #ifdef DEBUG
+      Serial.print("FS. "); Serial.print("t_flanco_subida = "); Serial.print(t_flanco_subida); Serial.print(" anchuraPulso = "); Serial.println(anchuraPulso);
+    #endif
     noInterrupts();
       n_TimerStart = 0;
       arrancarTemporizador();
     interrupts();
     controlLED(LOW);
     controlOscilador(LOW);
-    if (anchuraPulso < UMBRAL_INTERSIMBOLOS * tdi_ms) {
+    if (anchuraPulso < UMBRAL_INTERSIMBOLOS * (long)tdi_ms) {
       simbolo = PUNTO;
       n_puntos++;
     } else {
       simbolo = RAYA;
       n_rayas++;
     }
-
     return simbolo;
 }
 
@@ -714,12 +723,13 @@ void loop() {
   #endif
 
   bool hayEvento = false;
-  long int tiempo;
+  long tiempo;
   char evento;
   bool nuevo_simbolo;
   char simbolo;
   int n_dits;
   int wpm = 0;
+  int mi_jjj;
 
   noInterrupts();
     if (!vacia) {
@@ -730,13 +740,14 @@ void loop() {
       if (ptr_out==MAX_COLA) ptr_out = 0;
       if (ptr_in == ptr_out) vacia = true;
       llena = false;    
+      mi_jjj = jjj;
     }
   interrupts();
 
   if (hayEvento) {
 
     #ifdef DEBUG 
-      Serial.print("\nevento: "); Serial.print(strEvento(evento)); 
+      Serial.print("\n***evento: "); Serial.print(strEvento(evento)); 
       Serial.print(", estado: "); Serial.print(strEstado(estado));
       Serial.print(", tiempo: "); Serial.print(tiempo);
       Serial.print(", t_flanco_bajada: "); Serial.print(t_flanco_bajada);
@@ -747,18 +758,12 @@ void loop() {
     switch(evento) {
 
       case EVENTO_FLANCO_BAJADA:
-        nuevo_simbolo = false;
         switch(estado) {
           case ESTADO_INICIAL:
             estado = NIVEL_BAJO;
             t_flanco_bajada = tiempo;
             break;
           case NIVEL_BAJO:
-            if ( tiempo - t_flanco_bajada > T_REBOTE ) {
-              simbolo = falsoFlancoSubida(tiempo);
-              nuevo_simbolo = true;  
-              estado = NIVEL_ALTO;
-            }
             break;
           case NIVEL_ALTO:
             if ( tiempo - t_flanco_subida > T_REBOTE ) {
@@ -767,19 +772,11 @@ void loop() {
             }
             break;
         } // switch estado
-        if (nuevo_simbolo) {
-          acumularPuntoRaya(simbolo);
-          nuevo_simbolo = false;
-          printAnchuraPulso(anchuraPulso);
 
-          if (ptr_arrayTiempos==0) {
-            arrayTiempos[ptr_arrayTiempos++] = anchuraPulso;
-          } else {
-            arrayTiempos[ptr_arrayTiempos++] = anchuraSilencio;
-            arrayTiempos[ptr_arrayTiempos++] = anchuraPulso;
-          }
+        #ifdef DEBUG
+            Serial.print("FB->mi_jjj: "); Serial.println(mi_jjj);
+        #endif
 
-        }
         break;
       
       case EVENTO_FLANCO_SUBIDA:
@@ -796,26 +793,42 @@ void loop() {
               estado = NIVEL_ALTO;
             }
             break;
-          case NIVEL_ALTO:
-              if ( tiempo - t_flanco_subida > T_REBOTE ) {
-                falsoFlancoBajada(tiempo);
-                estado = NIVEL_BAJO;
-              }
+          case NIVEL_ALTO:              
             break;
         } // case
+        
         if (nuevo_simbolo) {
           acumularPuntoRaya(simbolo);
           nuevo_simbolo = false;
           printAnchuraPulso(anchuraPulso);
 
+          #ifdef DEBUG
+            Serial.print("NS: mi_jjj: "); Serial.println(mi_jjj);
+            Serial.print("Despues, ptr_arrayTiempos: "); Serial.print(ptr_arrayTiempos); Serial.print(": ");
+            for (int i =0; i<ptr_arrayTiempos; i++) {
+                Serial.print(arrayTiempos[i]); Serial.print(", ");  
+            }
+            Serial.println();
+          #endif
           if (ptr_arrayTiempos==0) {
             arrayTiempos[ptr_arrayTiempos++] = anchuraPulso;
           } else {
             arrayTiempos[ptr_arrayTiempos++] = anchuraSilencio;
             arrayTiempos[ptr_arrayTiempos++] = anchuraPulso;
           }
+          #ifdef DEBUG
+            Serial.print("Antes, ptr_arrayTiempos: "); Serial.println(ptr_arrayTiempos);
+            for (int i =0; i<ptr_arrayTiempos; i++) {
+                Serial.print(arrayTiempos[i]); Serial.print(", ");  
+            }
+            Serial.println();            
+          #endif
+        } // nuevo_simbolo
 
-        }
+        #ifdef DEBUG
+            Serial.print("FS->mi_jjj: "); Serial.println(mi_jjj);
+        #endif
+
         break;
 
       case EVENTO_TIMEOUT_INTERLETRAS:
@@ -833,6 +846,7 @@ void loop() {
         break;
 
       case EVENTO_TIMEOUT_INTERPALABRAS:
+      
         int n_dits = (n_puntos+n_rayas*3)+(n_puntos+n_rayas-1)*1 + 3*(n_letras-1)+3;
         int wpm_pp = (int) (60000.*n_dits/(50.*t_palabra));
 
@@ -847,8 +861,10 @@ void loop() {
           //reajustarTemporizador(tdi_ms);
         interrupts();
 
-        printLetra(ESPACIO);
         printWpm(wpm_media, wpm_pp);
+
+
+        printLetra(ESPACIO);
 
         n_puntos = 0;
         n_rayas  = 0;
