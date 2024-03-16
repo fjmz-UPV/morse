@@ -1,13 +1,13 @@
 
 
-//#define DEBUG 
+#define DEBUG 
 
 #define VERSION "v2.0"
 
 /********************* CONTROL PERIFERICOS *******************/
 
 bool ledOn = true;
-bool buzzerOn = true;
+bool buzzerOn = false;
 
 /************************* PANTALLA **********************/
 
@@ -105,6 +105,11 @@ char lineaLetras[MAX_LETRAS];
 #ifdef ARDUINO_AVR_UNO
 
 
+/***************** INICIALILZACION ******************/
+
+void inicPlaca() {
+  return;
+}
 
 /*************** TEMPORIZACION **************/
 
@@ -233,62 +238,190 @@ const int pinManipulador = 2;  // Manipulador
 
 ////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////
-//////////////// M%STACK CORE 2 ////////////////////////////////
+//////////////// M%STACK CORE S3 ////////////////////////////////
 ////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////
 
-#ifdef ARDUINO_M5STACK_Core2
+//#ifdef ARDUINO_M5STACK_CORE2
 
-#include <M5Unified.h>
+
+//#ifdef ARDUINO_ESP32S3_DEV
+
+//#ifdef ARDUINO_ADAFRUIT_QTPY_ESP32S3_N4R2
+
+//#ifdef ARDUINO_M5Stack_Core_ESP32
+
+#ifndef ARDUINO_AVR_UNO
+
+
+
+//#include <M5Unified.h>
+#include <M5CoreS3.h>
+
+
+
+
+/***************** INICIALILZACION ******************/
+
+void inicPlaca() {
+  auto cfg = M5.config();
+  CoreS3.begin(cfg);
+  return;
+}
+
 
 /*************** TEMPORIZACION **************/
 
-
-#include <utility/M5Timer.h>
-
-M5Timer M5T;
-int nTimer;
+int nTimer=0;
 
 long t_timer_ms_M5T;
 
-void configurarTemporizador(long t_timer_ms) {
-  t_timer_ms_M5T = t_timer_ms;
+void configurarTemporizador(long t_timer_us) {
+  
+  return;
+  
+ 
+}
+
+void pararTemporizador() {
+
+  
+  return;
+  
+}
+
+void arrancarTemporizador() {
+  
+  return;  
+  
+}
+
+
+void reajustarTemporizador(long t_timer_ms) {
+  
+  return;
+
+}
+
+
+/*
+#include <utility/M5Timer.h>
+
+M5Timer M5T;
+int nTimer=0;
+
+long t_timer_ms_M5T;
+
+void configurarTemporizador(long t_timer_us) {
+  t_timer_ms_M5T = t_timer_us/1000;
+  #ifdef DEBUG
+    Serial.print("t_timer_ms_M5T: "); Serial.println(t_timer_ms_M5T);
+  #endif
   pararTemporizador();
-  nTimer = M5T.setTimer(t_timer_ms_M5T, timeOut, 10);
+
+  return;
+  
+  //nTimer = M5T.setTimer(t_timer_ms_M5T, timeOut, 10);
+  nTimer = M5T.setInterval(t_timer_ms_M5T, timeOut);
   pararTemporizador();
 }
 
 void pararTemporizador() {
+
+  #ifdef DEBUG
+    Serial.print("Parando temporizador "); Serial.println(nTimer);
+  #endif
+  return;
   if (M5T.isEnabled(nTimer)) {
       M5T.deleteTimer(nTimer);
+      #ifdef DEBUG
+        Serial.print("Parado temporizador!!! ");  Serial.println(nTimer);
+      #endif
   }
 }
 
 void arrancarTemporizador() {
+  #ifdef DEBUG
+    Serial.print("Arrancando temporizador "); Serial.println(nTimer);
+  #endif
+  return;  
   pararTemporizador();
-  nTimer = M5T.setTimer(t_timer_ms_M5T, timeOut, 10);
+  //nTimer = M5T.setTimer(t_timer_ms_M5T, timeOut, 10);
+  ////nTimer = M5T.setInterval(t_timer_ms_M5T, timeOut);
+  #ifdef DEBUG
+    Serial.print("Arrancado temporizador!!! "); Serial.println(nTimer);
+  #endif
 }
 
 
-revisr ms us
-void reajustarTemporizador(long t_timer_us) {
-  configurarTemporizador(t_timer_us);
+void reajustarTemporizador(long t_timer_ms) {
+  #ifdef DEBUG
+    Serial.print("Reajustando temporizador "); Serial.println(nTimer);
+  #endif
+
+  return;
+
+  configurarTemporizador(t_timer_ms*1000);
+  #ifdef DEBUG
+    Serial.print("Reajustado temporizador!!! "); Serial.println(nTimer);
+  #endif
 }
+
+*/
 
 
 
 /******************* AUDIO *********************/
 
+/*
 void inicAudio() {
   M5.Speaker.begin();
   M5.Speaker.setVolume(32);
 }
+*/
+
+void inicAudio() {
+  /// I2S Custom configurations are available if you desire.
+  auto spk_cfg = CoreS3.Speaker.config();
+
+  if (spk_cfg.use_dac || spk_cfg.buzzer) {
+      /// Increasing the sample_rate will improve the sound quality
+      /// instead of increasing the CPU load.
+      spk_cfg.sample_rate =
+          192000;  // default:64000 (64kHz)  e.g. 48000 , 50000 , 80000 ,
+                    // 96000 , 100000 , 128000 , 144000 , 192000 , 200000
+  }
+  /*
+      spk_cfg.pin_data_out=8;
+      spk_cfg.pin_bck=7;
+      spk_cfg.pin_ws=10;     // LRCK
+
+      /// use single gpio buzzer, ( need only pin_data_out )
+      spk_cfg.buzzer = false;
+
+      /// use DAC speaker, ( need only pin_data_out ) ( only GPIO_NUM_25
+  or GPIO_NUM_26 ) spk_cfg.use_dac = false;
+      // spk_cfg.dac_zero_level = 64; // for Unit buzzer with DAC.
+
+      /// Volume Multiplier
+      spk_cfg.magnification = 16;
+    //*/
+    CoreS3.Speaker.config(spk_cfg);
+    CoreS3.Speaker.begin();
+
+}
+
+
+
 
 void controlOscilador(int valor) {
-  if (valor==LOW) {
-    M5.Speaker.stop();
-  } else {
-    M5.Speaker.tone(1000, 1000);
+  return;
+  if (buzzerOn) {
+    if (valor==LOW) {
+      CoreS3.Speaker.stop();
+    } else {
+      CoreS3.Speaker.tone(1000, 1000);
+    }
   }
 }
 
@@ -301,11 +434,14 @@ void inicLED() {
 }
 
 void controlLED(int valor) {
-  if (valor!=LOW) {
-      M5.Lcd.fillCircle(310, 10, 5, YELLOW);
+  return;
+  if (ledOn) {
+    if (valor!=LOW) {
+        M5.Lcd.fillCircle(310, 10, 5, YELLOW);
     } else {
-      M5.Lcd.fillCircle(310, 10, 5, BLACK);
-}
+        M5.Lcd.fillCircle(310, 10, 5, BLACK);
+    }
+  }
 }
 
 
@@ -320,7 +456,8 @@ void inicDisplay() {
 }
 
 void presentacion() {
-  print("PacoSoft CW Decoder!\n");
+  print("PacoSoft CW Decoder! ");
+  print(VERSION); print("\n");
   print(WPM_INIC); print(' '); print(tdi_ms); print(' '); print(UMBRAL_INTERSIMBOLOS*tdi_ms);
 }
 
@@ -368,7 +505,10 @@ void print(long x) {
 
 /************* MANIPULADOR ARDUINO UNO **************/
 
-const int pinManipulador = 33;  // Manipulador
+//const int pinManipulador = 33;  // Manipulador Core2
+
+const int pinManipulador = 1;  // Manipulador CoreS3
+
 
 
 
@@ -565,8 +705,14 @@ void inicManipulador() {
 
 
 void doChange() {
-  encolarEvento( ( (digitalRead(pinManipulador)==LOW)? 'B' : 'S' ) );
+  portENTER_CRITICAL_ISR(&timerMux);  
+    encolarEvento( ( (digitalRead(pinManipulador)==LOW)? 'B' : 'S' ) );
+  portEXIT_CRITICAL_ISR(&timerMux);
 }
+
+
+portMUX_TYPE colaMux = portMUX_INITIALIZER_UNLOCKED;
+
 
 void encolarEvento(char evento) {
   if (llena) return;
@@ -596,11 +742,14 @@ void timeOut() {
 
 
 
-
+/****************************************************/
 /********************** SETUP ***********************/
+/****************************************************/
 
 void setup(){
 
+
+  inicPlaca();
 
   #ifdef DEBUG
     Serial.begin(115200);
@@ -614,16 +763,9 @@ void setup(){
 
   tdi_ms        = round( 60.f/(50*WPM_INIC ) *1000 );
   long tdi_us = (long)tdi_ms * 1000;
-  configurarTemporizador(tdi_us);
+  ////configurarTemporizador(tdi_us);
 
-  #ifdef DEBUG
-    Serial.print("\nWPM_INIC: ");
-    Serial.println(WPM_INIC);
-    Serial.print("tdi_ms: ");
-    Serial.println(tdi_ms);
-    Serial.print("tdi_us: ");
-    Serial.println(tdi_us);
-  #endif
+
 
   for (int i = 0; i < MAX_LETRAS; i++ ) {
     lineaLetras[i]=' ';
@@ -634,6 +776,15 @@ void setup(){
   printWpm(WPM_INIC, WPM_INIC);
   
   attachInterrupt(digitalPinToInterrupt(pinManipulador), doChange,  CHANGE);
+
+  #ifdef DEBUG
+    Serial.print("\nWPM_INIC: ");
+    Serial.println(WPM_INIC);
+    Serial.print("tdi_ms: ");
+    Serial.println(tdi_ms);
+    Serial.print("tdi_us: ");
+    Serial.println(tdi_us);
+  #endif
 
 }
 
@@ -718,8 +869,8 @@ String strEvento(char evento) {
 
 void loop() {
 
-  #ifdef ARDUINO_M5STACK_Core2
-    M5T.run();
+  #ifdef ARDUINO_M5STACK_CORE2
+    //M5T.run();
   #endif
 
   bool hayEvento = false;
@@ -744,7 +895,8 @@ void loop() {
     }
   interrupts();
 
-  if (hayEvento) {
+  bool hacer = false;
+  if (hayEvento && hacer) {
 
     #ifdef DEBUG 
       Serial.print("\n***evento: "); Serial.print(strEvento(evento)); 
