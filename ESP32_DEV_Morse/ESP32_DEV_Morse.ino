@@ -215,7 +215,7 @@ void gestionEventos() {
 
   if (hayEvento) {
     if (tiempo-tiempoAnterior>T_REBOTE) {
-      String mensaje = "{e:" + String(evento) + ", t:" + String(tiempo) +"}\n";
+      String mensaje = "{\"e\":" + String(evento) + ", \"t\":" + String(tiempo) +"}\n";
       enviarPorBluetooth(mensaje);
       Serial.print("mi_jjj: "); Serial.println(mi_jjj);
       Serial.print("n_TimerStart: "); Serial.println(n_TimerStart);
@@ -261,7 +261,7 @@ void doChange() {
     int nivel = digitalRead(pinManipuladorVertical);
     encolarEvento( ( (nivel==LOW)? 'S' : 'B' ) );  // Lógica invertida por trigger Shcmitt
     controlLED(nivel);
-    if (nivel==HIGH) { 
+    if (nivel==LOW) { 
       n_TimerStart = 0;
       //timerRestart(temporizador);
       timerRestart(temporizador);
@@ -269,6 +269,8 @@ void doChange() {
       timerAlarmEnable(temporizador);
       timerStart(temporizador);
       jjj++;
+    } else {
+      timerStop(temporizador);
     }
   portEXIT_CRITICAL_ISR(&colaMux);
 }
