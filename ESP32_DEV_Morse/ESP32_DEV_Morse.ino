@@ -4,6 +4,7 @@
 #define USE_PIN
 
 
+#include <ArduinoJson.h>
 
 
 /************* INIC MANIPULADOR  **************/
@@ -36,8 +37,8 @@ bool ledPuntoRayaOn = true;
 
 void inicLED() {
   pinMode(ledPuntoRaya, OUTPUT);
-  //pinMode(ledPunto, OUTPUT);
-  //pinMode(ledRaya,  OUTPUT);
+  pinMode(ledPunto, OUTPUT);
+  pinMode(ledRaya,  OUTPUT);
 }
 
 
@@ -85,7 +86,8 @@ char buffer[MAX_CAR_MENSAJE];
 
 void enviarPorBluetooth(String mensaje) {
   #ifdef SERIAL
-    Serial.printf("mensaje a enviar: %s", mensaje.c_str());
+    Serial.printf("mensaje a enviar: %s\n", mensaje.c_str());
+    Serial.print("mensaje a enviar: "); Serial.println(mensaje);
   #endif
 
   mensaje.toCharArray(buffer, MAX_CAR_MENSAJE);
@@ -228,15 +230,28 @@ void gestionEventos() {
 
 
 
-
+String comandoStr = "";
 
 void proceso() {
+
+  JsonDocument comando;
 
   if (Serial.available()) {
     SerialBT.write(Serial.read());
   }
   if (SerialBT.available()) {
-    Serial.write(SerialBT.read());
+      deserializeJson(comando, SerialBT);
+      ejecutarComando(comando);
+
+    /*    
+    int caracter = SerialBT.read();
+    comandoStr += (char)caracter;
+    if (caracter=='\n') {
+        deserializeJson(comando, comandoStr);
+        ejecutarComando(comando);
+        comandoStr = "";
+    }
+    */
   }
 
   gestionEventos();
@@ -245,6 +260,34 @@ void proceso() {
 
 
 
+
+void ejecutarComando(JsonDocument comando) {
+  //Serial.print("recibido: "); Serial.println(comando);
+  String orden = comando["com"];
+  String valor = comando["valor"];
+
+  if      (orden=="led1") { digitalWrite(ledPuntoRaya, (valor=="on")?HIGH:LOW); }
+  else if (orden=="led2") { digitalWrite(ledRaya,      (valor=="on")?HIGH:LOW); }
+  else if (orden=="led3") { digitalWrite(ledPunto,     (valor=="on")?HIGH:LOW); }
+  else if (orden=="wpm")  { wpm = valor.toInt(); }
+  else if (orden=="info") {
+    String respuesta = "{\"led1\": ";
+    respuesta += digitalRead(ledPuntoRaya);
+    respuesta += ", \"led2\": ";
+    respuesta += digitalRead(ledRaya);
+    respuesta += ", \"led3\": ";
+    respuesta += digitalRead(ledPunto);
+    respuesta += ", \"wpm\": ";
+    respuesta += wpm;
+    respuesta += "}";
+    enviarPorBluetooth(respuesta);                      
+  }
+  String comandoStr;
+  serializeJson(comando, comandoStr);
+  Serial.println(comandoStr);
+
+
+}
 
 
 
